@@ -48,6 +48,12 @@
 - 巨大なファイル（数GB）はメモリの都合で扱えない場合があります
 - マルチスレッド版（ffmpeg.wasm-mt）に切り替えるには COOP/COEP ヘッダ設定が必要なため未採用
 
+## デプロイメモ
+
+GitHub Pages のように HTTP ヘッダを直接いじれない環境でも動くように、`coi-serviceworker.js` で COOP/COEP ヘッダを Service Worker 経由で注入しています。これがないと ffmpeg.wasm が `Failed to construct 'Worker'` で落ちます。
+
+ffmpeg 本体スクリプト（`814.ffmpeg.js`）も `toBlobURL` で同一オリジンBlob化して読み込んでいます。CDN直リンクだと cross-origin Worker 起動でエラーになるためです。
+
 ## ライセンス
 
 MIT License (このアプリのコード)

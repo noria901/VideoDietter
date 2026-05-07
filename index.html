@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>VideoDietter — 動画を痩せさせるやつ</title>
 <meta name="description" content="ブラウザだけで動画をSNS用に変換するやつ。ファイルはサーバーに送られません。" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect x='6' y='6' width='52' height='52' rx='11' fill='%231c1c1a'/><path d='M18 14 L46 14 Q42 32 46 50 L18 50 Q22 32 18 14 Z' fill='%23fafaf7'/><circle cx='14' cy='20' r='2' fill='%23fafaf7'/><circle cx='14' cy='32' r='2' fill='%23fafaf7'/><circle cx='14' cy='44' r='2' fill='%23fafaf7'/><circle cx='50' cy='20' r='2' fill='%23fafaf7'/><circle cx='50' cy='32' r='2' fill='%23fafaf7'/><circle cx='50' cy='44' r='2' fill='%23fafaf7'/><path d='M28 28 L36 28 L34 32 L36 36 L28 36 L30 32 Z' fill='%231c1c1a'/></svg>" />
+<script src="coi-serviceworker.js"></script>
 <style>
   :root {
     --bg: #fafaf7;
@@ -374,10 +376,12 @@
       el('vc-bar-fill').style.width = pct + '%';
       el('vc-status').innerHTML = `<strong>変換中…</strong> ${pct}%`;
     });
-    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+    const coreBaseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+    const ffmpegBaseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd';
     await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      coreURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      classWorkerURL: await toBlobURL(`${ffmpegBaseURL}/814.ffmpeg.js`, 'text/javascript'),
     });
     loaded = true;
     return ffmpeg;
