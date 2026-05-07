@@ -454,6 +454,8 @@
       args.push('-filter_complex', fc, '-map', vlabel);
       if (!opts.mute) args.push('-map', '0:a?');
     }
+    const threads = Math.max(2, Math.min(8, navigator.hardwareConcurrency || 4));
+    args.push('-threads', String(threads));
     args.push('-c:v', 'libx264', '-preset', preset.preset);
     if (preset.mode === 'crf') args.push('-crf', String(preset.crf));
     else {
