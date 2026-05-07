@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VideoDietter — 動画を痩せさせるやつ</title>
+<meta name="description" content="ブラウザだけで動画をSNS用に変換するやつ。ファイルはサーバーに送られません。" />
+<style>
+  :root {
+    --bg: #fafaf7;
+    --surface: #ffffff;
+    --surface-2: #f1efe8;
+    --text: #1c1c1a;
+    --text-2: #5f5e5a;
+    --text-3: #888780;
+    --border: rgba(0,0,0,0.12);
+    --border-2: rgba(0,0,0,0.2);
+    --accent: #185fa5;
+    --accent-bg: #e6f1fb;
+    --warn: #854f0b;
+    --danger: #a32d2d;
+    --success: #0f6e56;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a17;
+      --surface: #242420;
+      --surface-2: #2c2c28;
+      --text: #f1efe8;
+      --text-2: #b4b2a9;
+      --text-3: #888780;
+      --border: rgba(255,255,255,0.12);
+      --border-2: rgba(255,255,255,0.2);
+      --accent: #85b7eb;
+      --accent-bg: #0c447c;
+      --warn: #fac775;
+      --danger: #f09595;
+      --success: #5dcaa5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0;
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 760px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  header { margin-bottom: 1.5rem; }
+  h1 { font-size: 22px; font-weight: 500; margin: 0 0 4px; }
+  .tagline { font-size: 13px; color: var(--text-2); margin: 0; }
+  .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; }
+  .section-label { font-size: 13px; font-weight: 500; color: var(--text-2); margin: 0 0 8px; }
+  .drop { border: 1px dashed var(--border-2); border-radius: var(--radius-lg); padding: 1.5rem 1rem; text-align: center; transition: background 0.15s, border-color 0.15s; cursor: pointer; }
+  .drop:hover { border-color: var(--accent); }
+  .drop.over { background: var(--accent-bg); border-color: var(--accent); }
+  .drop.has-file { border-style: solid; }
+  .drop.small { padding: 0.85rem 1rem; }
+  .preset { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-md); padding: 12px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  .preset:hover { border-color: var(--border-2); }
+  .preset.sel { border: 2px solid var(--accent); padding: 11px; background: var(--accent-bg); }
+  .preset .name { font-size: 14px; font-weight: 500; margin: 0 0 4px; }
+  .preset .desc { font-size: 12px; color: var(--text-2); margin: 0; line-height: 1.4; }
+  .log { font-family: var(--font-mono); font-size: 11px; background: var(--surface-2); border-radius: var(--radius-md); padding: 10px 12px; max-height: 160px; overflow-y: auto; white-space: pre-wrap; color: var(--text-2); }
+  .bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; }
+  .stat { font-size: 13px; color: var(--text-2); }
+  .stat strong { color: var(--text); font-weight: 500; }
+  .btn-primary { background: var(--text); color: var(--bg); border: none; padding: 10px 20px; border-radius: var(--radius-md); font-size: 14px; font-weight: 500; cursor: pointer; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary { background: transparent; border: 0.5px solid var(--border-2); border-radius: var(--radius-md); padding: 8px 16px; font-size: 13px; cursor: pointer; color: var(--text); display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+  .btn-ghost { background: transparent; border: 0.5px solid var(--border); border-radius: var(--radius-md); padding: 6px 10px; font-size: 12px; cursor: pointer; color: var(--text-2); }
+  .pos-grid { display: grid; grid-template-columns: repeat(3, 28px); grid-template-rows: repeat(3, 28px); gap: 4px; }
+  .pos-cell { border: 0.5px solid var(--border); border-radius: 4px; cursor: pointer; background: var(--surface); }
+  .pos-cell.sel { background: var(--accent); border-color: var(--accent); }
+  .metric { background: var(--surface-2); border-radius: var(--radius-md); padding: 10px 12px; }
+  .metric .lbl { font-size: 11px; color: var(--text-2); margin: 0 0 2px; }
+  .metric .val { font-size: 16px; font-weight: 500; margin: 0; }
+  .metric .val.warn { color: var(--warn); }
+  .metric .val.danger { color: var(--danger); }
+  input[type="range"] { flex: 1; accent-color: var(--accent); }
+  select, input[type="checkbox"] { accent-color: var(--accent); }
+  select { padding: 4px 8px; border-radius: var(--radius-md); border: 0.5px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; }
+  footer { margin-top: 3rem; text-align: center; font-size: 12px; color: var(--text-3); }
+  footer a { color: var(--text-2); }
+  .status-ok { color: var(--success); font-weight: 500; }
+  .status-err { color: var(--danger); font-weight: 500; }
+  .info-block { background: var(--surface-2); border-radius: var(--radius-md); padding: 10px 12px; font-size: 12px; color: var(--text-2); margin-top: 8px; }
+  .info-block.warn-block { background: rgba(133, 79, 11, 0.08); color: var(--warn); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>VideoDietter</h1>
+    <p class="tagline">動画を痩せさせるやつ。SNS用にちょうどいい大きさ・形式に変換します。</p>
+  </header>
+
+  <div id="vc-drop" class="drop">
+    <p style="margin: 0 0 4px; font-size: 14px; font-weight: 500;" id="vc-drop-title">動画ファイルをドラッグ&ドロップ</p>
+    <p style="margin: 0; font-size: 12px; color: var(--text-2);" id="vc-drop-sub">またはクリックして選択 (mp4, mov, avi, mkv, webm)</p>
+    <input type="file" id="vc-file" accept="video/*" style="display: none;" />
+  </div>
+
+  <div style="margin-top: 1.25rem;">
+    <p class="section-label">プリセット</p>
+    <div id="vc-presets" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;"></div>
+  </div>
+
+  <div id="vc-estimate" style="margin-top: 1rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+    <div class="metric"><p class="lbl">入力</p><p class="val" id="vc-est-in">—</p></div>
+    <div class="metric"><p class="lbl">推定出力サイズ</p><p class="val" id="vc-est-out">—</p></div>
+    <div class="metric"><p class="lbl">推定ビットレート</p><p class="val" id="vc-est-br">—</p></div>
+  </div>
+
+  <div style="margin-top: 1.25rem;">
+    <p class="section-label">基本オプション</p>
+    <div style="display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; align-items: center;">
+      <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" id="vc-mute" /> 音声なし</label>
+      <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" id="vc-fast" checked /> faststart</label>
+      <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><input type="checkbox" id="vc-loudnorm" /> 音量正規化 (-14 LUFS)</label>
+      <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">回転
+        <select id="vc-rotate">
+          <option value="0">なし</option>
+          <option value="90">90° 右</option>
+          <option value="-90">90° 左</option>
+          <option value="180">180°</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div style="margin-top: 1.25rem;">
+    <p class="section-label">ウォーターマーク</p>
+    <div id="vc-wm-drop" class="drop small">
+      <span id="vc-wm-label" style="font-size: 13px;">PNGをドロップ or クリック (任意)</span>
+      <input type="file" id="vc-wm-file" accept="image/png,image/jpeg,image/webp" style="display: none;" />
+    </div>
+    <div id="vc-wm-opts" style="display: none; margin-top: 12px; gap: 16px; flex-wrap: wrap; align-items: flex-start;">
+      <div>
+        <p style="font-size: 12px; color: var(--text-2); margin: 0 0 6px;">位置</p>
+        <div class="pos-grid" id="vc-pos-grid"></div>
+      </div>
+      <div style="flex: 1; min-width: 200px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <label style="font-size: 12px; color: var(--text-2); min-width: 64px;">サイズ</label>
+          <input type="range" id="vc-wm-size" min="5" max="50" value="15" step="1" />
+          <span style="font-size: 12px; min-width: 36px; text-align: right;" id="vc-wm-size-out">15%</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <label style="font-size: 12px; color: var(--text-2); min-width: 64px;">不透明度</label>
+          <input type="range" id="vc-wm-opacity" min="10" max="100" value="100" step="5" />
+          <span style="font-size: 12px; min-width: 36px; text-align: right;" id="vc-wm-opacity-out">100%</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-size: 12px; color: var(--text-2); min-width: 64px;">余白</label>
+          <input type="range" id="vc-wm-margin" min="0" max="40" value="10" step="1" />
+          <span style="font-size: 12px; min-width: 36px; text-align: right;" id="vc-wm-margin-out">10px</span>
+        </div>
+      </div>
+      <button id="vc-wm-clear" class="btn-ghost">削除</button>
+    </div>
+  </div>
+
+  <div style="margin-top: 1.5rem; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+    <button id="vc-run" class="btn-primary" disabled>変換開始</button>
+    <span id="vc-status" class="stat"></span>
+  </div>
+
+  <div id="vc-progress-wrap" style="margin-top: 12px; display: none;">
+    <div class="bar"><div id="vc-bar-fill" class="bar-fill"></div></div>
+  </div>
+
+  <div id="vc-log-wrap" style="margin-top: 12px; display: none;">
+    <p class="section-label" style="margin-bottom: 4px;">ffmpegログ</p>
+    <div id="vc-log" class="log"></div>
+  </div>
+
+  <div id="vc-result" style="margin-top: 1.5rem; display: none;">
+    <div class="card">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+        <p style="margin: 0; font-size: 14px; font-weight: 500;" class="status-ok">変換完了</p>
+        <span id="vc-result-meta" class="stat"></span>
+      </div>
+      <video id="vc-preview" controls style="width: 100%; border-radius: var(--radius-md); background: #000; max-height: 360px;"></video>
+      <div style="margin-top: 12px; display: flex; gap: 8px;">
+        <a id="vc-download" download="" class="btn-secondary">ダウンロード</a>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>すべての処理はブラウザ内で完結します。動画ファイルがサーバーに送信されることはありません。</p>
+    <p><a href="https://github.com/noria901/VideoDietter" target="_blank" rel="noopener">GitHub</a> · powered by <a href="https://ffmpegwasm.netlify.app/" target="_blank" rel="noopener">ffmpeg.wasm</a></p>
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+<script>
+(function(){
+  const PRESETS = [
+    { id: 'x_std', name: 'X (標準)', desc: '1080p / H.264 / 8Mbps', mode: 'vbr', vw: 1920, vh: 1080, vb_kbps: 8000, ab_kbps: 128, fps: null, profile: 'high', level: '4.1', preset: 'medium', pad: false },
+    { id: 'x_light', name: 'X (軽量)', desc: '720p / 30fps / 2Mbps', mode: 'vbr', vw: 1280, vh: 720, vb_kbps: 2000, ab_kbps: 96, fps: 30, profile: 'main', level: '4.0', preset: 'medium', pad: false },
+    { id: 'bsky', name: 'Bluesky', desc: '1080p / 5Mbps', mode: 'vbr', vw: 1920, vh: 1080, vb_kbps: 5000, ab_kbps: 128, fps: null, profile: 'high', level: '4.1', preset: 'medium', pad: false },
+    { id: 'shorts', name: 'YT Shorts/縦', desc: '1080x1920 / CRF 20', mode: 'crf', vw: 1080, vh: 1920, crf: 20, ab_kbps: 160, fps: null, profile: 'high', level: '4.1', preset: 'medium', pad: true },
+    { id: 'archive_lite', name: '保管 (軽量)', desc: '720p / CRF 28', mode: 'crf', vw: 1280, vh: 720, crf: 28, ab_kbps: 64, fps: null, profile: 'high', level: '4.0', preset: 'slow', pad: false },
+    { id: 'archive_quality', name: '保管 (画質)', desc: '元解像度 / CRF 20', mode: 'crf', vw: null, vh: null, crf: 20, ab_kbps: 160, fps: null, profile: 'high', level: '4.1', preset: 'slow', pad: false },
+  ];
+
+  const CRF_BR_HINT = { 18: 12000, 20: 8000, 23: 5000, 28: 2500 };
+
+  let selectedPreset = 'x_std';
+  let inputFile = null;
+  let inputMeta = null;
+  let watermarkFile = null;
+  let wmPosition = 0;
+  let ffmpeg = null;
+  let loaded = false;
+
+  const el = (id) => document.getElementById(id);
+  const fmtBytes = (n) => n < 1024*1024 ? (n/1024).toFixed(0)+' KB' : n < 1024*1024*1024 ? (n/(1024*1024)).toFixed(1)+' MB' : (n/(1024*1024*1024)).toFixed(2)+' GB';
+  const fmtDuration = (s) => { if (!s || !isFinite(s)) return '—'; const m = Math.floor(s/60); const ss = Math.floor(s%60); return `${m}:${String(ss).padStart(2,'0')}`; };
+
+  function renderPresets(){
+    const wrap = el('vc-presets');
+    wrap.innerHTML = PRESETS.map(p => `
+      <div class="preset ${p.id===selectedPreset?'sel':''}" data-id="${p.id}">
+        <p class="name">${p.name}</p>
+        <p class="desc">${p.desc}</p>
+      </div>`).join('');
+    wrap.querySelectorAll('.preset').forEach(node => {
+      node.addEventListener('click', () => { selectedPreset = node.dataset.id; renderPresets(); updateEstimate(); });
+    });
+  }
+
+  function renderPosGrid(){
+    const grid = el('vc-pos-grid');
+    grid.innerHTML = '';
+    for (let i = 0; i < 9; i++){
+      const c = document.createElement('div');
+      c.className = 'pos-cell' + (i === wmPosition ? ' sel' : '');
+      c.dataset.idx = i;
+      c.addEventListener('click', () => { wmPosition = i; renderPosGrid(); });
+      grid.appendChild(c);
+    }
+  }
+
+  function getPresetEffectiveBitrate(p){
+    if (p.mode === 'vbr') return (p.vb_kbps || 0) + (p.ab_kbps || 0);
+    const vbHint = CRF_BR_HINT[p.crf] || 5000;
+    if (p.vw && p.vh){
+      const ratio = (p.vw * p.vh) / (1280 * 720);
+      return Math.round(vbHint * Math.max(0.4, Math.min(2.5, ratio))) + (p.ab_kbps || 0);
+    }
+    if (inputMeta && inputMeta.width && inputMeta.height){
+      const ratio = (inputMeta.width * inputMeta.height) / (1280 * 720);
+      return Math.round(vbHint * Math.max(0.4, Math.min(2.5, ratio))) + (p.ab_kbps || 0);
+    }
+    return vbHint + (p.ab_kbps || 0);
+  }
+
+  function updateEstimate(){
+    const p = PRESETS.find(x => x.id === selectedPreset);
+    if (!inputFile){
+      el('vc-est-in').textContent = '—';
+      el('vc-est-out').textContent = '—';
+      el('vc-est-br').textContent = '—';
+      return;
+    }
+    const inSize = inputFile.size;
+    const dur = inputMeta && inputMeta.duration;
+    el('vc-est-in').textContent = `${fmtBytes(inSize)}${dur ? ' · ' + fmtDuration(dur) : ''}`;
+    if (!dur){
+      el('vc-est-out').textContent = '尺解析中…';
+      el('vc-est-br').textContent = '—';
+      return;
+    }
+    const totalKbps = getPresetEffectiveBitrate(p);
+    el('vc-est-br').textContent = `${(totalKbps/1000).toFixed(1)} Mbps`;
+    const estBytes = (totalKbps * 1000 / 8) * dur;
+    const outEl = el('vc-est-out');
+    outEl.textContent = `≈ ${fmtBytes(estBytes)}`;
+    outEl.classList.remove('warn', 'danger');
+    if (estBytes > 512 * 1024 * 1024) outEl.classList.add('danger');
+    else if (estBytes > 200 * 1024 * 1024) outEl.classList.add('warn');
+  }
+
+  async function probeMeta(file){
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const v = document.createElement('video');
+      v.preload = 'metadata';
+      v.onloadedmetadata = () => {
+        const meta = { duration: v.duration, width: v.videoWidth, height: v.videoHeight, size: file.size };
+        URL.revokeObjectURL(url);
+        resolve(meta);
+      };
+      v.onerror = () => { URL.revokeObjectURL(url); resolve({ duration: null, width: null, height: null, size: file.size }); };
+      v.src = url;
+    });
+  }
+
+  async function setFile(f){
+    inputFile = f;
+    inputMeta = null;
+    el('vc-drop').classList.add('has-file');
+    el('vc-drop-title').textContent = f.name;
+    el('vc-drop-sub').textContent = `${fmtBytes(f.size)} · 解析中…`;
+    el('vc-run').disabled = false;
+    updateEstimate();
+    inputMeta = await probeMeta(f);
+    if (inputMeta.width){
+      el('vc-drop-sub').textContent = `${fmtBytes(f.size)} · ${inputMeta.width}×${inputMeta.height} · ${fmtDuration(inputMeta.duration)}`;
+    } else {
+      el('vc-drop-sub').textContent = `${fmtBytes(f.size)} · メタデータ取得不可 (FFmpegで処理します)`;
+    }
+    updateEstimate();
+  }
+
+  function setupDrop(dropEl, fileInputEl, onFile){
+    dropEl.addEventListener('click', () => fileInputEl.click());
+    dropEl.addEventListener('dragover', (e) => { e.preventDefault(); dropEl.classList.add('over'); });
+    dropEl.addEventListener('dragleave', () => dropEl.classList.remove('over'));
+    dropEl.addEventListener('drop', (e) => {
+      e.preventDefault(); dropEl.classList.remove('over');
+      const f = e.dataTransfer.files[0]; if (f) onFile(f);
+    });
+    fileInputEl.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) onFile(f); });
+  }
+  setupDrop(el('vc-drop'), el('vc-file'), setFile);
+
+  function setWatermark(f){
+    watermarkFile = f;
+    el('vc-wm-label').textContent = f.name;
+    el('vc-wm-opts').style.display = 'flex';
+  }
+  setupDrop(el('vc-wm-drop'), el('vc-wm-file'), setWatermark);
+  el('vc-wm-clear').addEventListener('click', (e) => {
+    e.stopPropagation();
+    watermarkFile = null;
+    el('vc-wm-file').value = '';
+    el('vc-wm-label').textContent = 'PNGをドロップ or クリック (任意)';
+    el('vc-wm-opts').style.display = 'none';
+  });
+  ['vc-wm-size','vc-wm-opacity','vc-wm-margin'].forEach(id => {
+    const input = el(id);
+    const out = el(id + '-out');
+    const unit = id.endsWith('margin') ? 'px' : '%';
+    input.addEventListener('input', () => out.textContent = input.value + unit);
+  });
+
+  function logLine(s){
+    const log = el('vc-log');
+    log.textContent += s + '\n';
+    log.scrollTop = log.scrollHeight;
+  }
+
+  async function ensureFfmpeg(){
+    if (loaded) return ffmpeg;
+    el('vc-status').innerHTML = '<strong>FFmpeg読み込み中…</strong> (初回 ~30MB)';
+    const { FFmpeg } = FFmpegWASM;
+    const { toBlobURL } = FFmpegUtil;
+    ffmpeg = new FFmpeg();
+    ffmpeg.on('log', ({ message }) => logLine(message));
+    ffmpeg.on('progress', ({ progress }) => {
+      const pct = Math.max(0, Math.min(100, Math.round(progress * 100)));
+      el('vc-bar-fill').style.width = pct + '%';
+      el('vc-status').innerHTML = `<strong>変換中…</strong> ${pct}%`;
+    });
+    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+    await ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+    });
+    loaded = true;
+    return ffmpeg;
+  }
+
+  function buildFilterComplex(preset, opts, hasWatermark){
+    const vChain = [];
+    if (preset.vw && preset.vh){
+      if (preset.pad){
+        vChain.push(`scale=${preset.vw}:${preset.vh}:force_original_aspect_ratio=decrease,pad=${preset.vw}:${preset.vh}:(ow-iw)/2:(oh-ih)/2:black`);
+      } else {
+        vChain.push(`scale='min(${preset.vw},iw)':'min(${preset.vh},ih)':force_original_aspect_ratio=decrease`);
+      }
+    }
+    if (opts.rotate === '90') vChain.push('transpose=1');
+    else if (opts.rotate === '-90') vChain.push('transpose=2');
+    else if (opts.rotate === '180') vChain.push('transpose=1,transpose=1');
+    if (preset.fps) vChain.push(`fps=${preset.fps}`);
+
+    if (!hasWatermark){
+      return { fc: vChain.length ? `[0:v]${vChain.join(',')}[v]` : null, vlabel: vChain.length ? '[v]' : '0:v' };
+    }
+    const baseLabel = vChain.length ? '[base]' : '[0:v]';
+    const baseChain = vChain.length ? `[0:v]${vChain.join(',')}[base]` : '';
+    const wmScale = `[1:v]scale=iw*${opts.wmSize/100}*main_w/iw:-1,format=rgba,colorchannelmixer=aa=${opts.wmOpacity/100}[wm]`;
+    const m = opts.wmMargin;
+    const positions = [
+      `${m}:${m}`,
+      `(W-w)/2:${m}`,
+      `W-w-${m}:${m}`,
+      `${m}:(H-h)/2`,
+      `(W-w)/2:(H-h)/2`,
+      `W-w-${m}:(H-h)/2`,
+      `${m}:H-h-${m}`,
+      `(W-w)/2:H-h-${m}`,
+      `W-w-${m}:H-h-${m}`,
+    ];
+    const overlayPos = positions[opts.wmPos];
+    const overlay = `${baseLabel}[wm]overlay=${overlayPos}[v]`;
+    const fc = [baseChain, wmScale, overlay].filter(Boolean).join(';');
+    return { fc, vlabel: '[v]' };
+  }
+
+  function buildArgs(preset, opts, inName, outName, wmName){
+    const args = ['-i', inName];
+    if (wmName) args.push('-i', wmName);
+    const { fc, vlabel } = buildFilterComplex(preset, opts, !!wmName);
+    if (fc){
+      args.push('-filter_complex', fc, '-map', vlabel);
+      if (!opts.mute) args.push('-map', '0:a?');
+    }
+    args.push('-c:v', 'libx264', '-preset', preset.preset);
+    if (preset.mode === 'crf') args.push('-crf', String(preset.crf));
+    else {
+      args.push('-b:v', `${preset.vb_kbps}k`, '-maxrate', `${Math.round(preset.vb_kbps * 1.1)}k`, '-bufsize', `${preset.vb_kbps * 2}k`);
+    }
+    args.push('-profile:v', preset.profile, '-level', preset.level, '-pix_fmt', 'yuv420p');
+
+    if (opts.mute){
+      args.push('-an');
+    } else {
+      const aFilters = [];
+      if (opts.loudnorm) aFilters.push('loudnorm=I=-14:LRA=11:TP=-1.5');
+      if (aFilters.length) args.push('-af', aFilters.join(','));
+      args.push('-c:a', 'aac', '-b:a', `${preset.ab_kbps}k`, '-ac', '2', '-ar', '48000');
+    }
+    if (opts.faststart) args.push('-movflags', '+faststart');
+    args.push('-y', outName);
+    return args;
+  }
+
+  async function run(){
+    if (!inputFile) return;
+    el('vc-run').disabled = true;
+    el('vc-result').style.display = 'none';
+    el('vc-progress-wrap').style.display = 'block';
+    el('vc-log-wrap').style.display = 'block';
+    el('vc-log').textContent = '';
+    el('vc-bar-fill').style.width = '0%';
+    const t0 = performance.now();
+    try {
+      const ff = await ensureFfmpeg();
+      const { fetchFile } = FFmpegUtil;
+      const preset = PRESETS.find(p => p.id === selectedPreset);
+      const inName = 'in.' + (inputFile.name.split('.').pop() || 'mp4').toLowerCase();
+      const outName = 'out.mp4';
+      let wmName = null;
+      el('vc-status').innerHTML = '<strong>ファイル書き込み中…</strong>';
+      await ff.writeFile(inName, await fetchFile(inputFile));
+      if (watermarkFile){
+        wmName = 'wm.' + (watermarkFile.name.split('.').pop() || 'png').toLowerCase();
+        await ff.writeFile(wmName, await fetchFile(watermarkFile));
+      }
+      const opts = {
+        mute: el('vc-mute').checked,
+        faststart: el('vc-fast').checked,
+        loudnorm: el('vc-loudnorm').checked,
+        rotate: el('vc-rotate').value,
+        wmPos: wmPosition,
+        wmSize: parseInt(el('vc-wm-size').value, 10),
+        wmOpacity: parseInt(el('vc-wm-opacity').value, 10),
+        wmMargin: parseInt(el('vc-wm-margin').value, 10),
+      };
+      const args = buildArgs(preset, opts, inName, outName, wmName);
+      logLine('$ ffmpeg ' + args.join(' '));
+      await ff.exec(args);
+      const data = await ff.readFile(outName);
+      const blob = new Blob([data.buffer], { type: 'video/mp4' });
+      const url = URL.createObjectURL(blob);
+      const dt = ((performance.now() - t0) / 1000).toFixed(1);
+      el('vc-preview').src = url;
+      const dl = el('vc-download');
+      const baseName = inputFile.name.replace(/\.[^.]+$/, '');
+      dl.href = url; dl.download = `${baseName}_${preset.id}.mp4`;
+      const ratio = (blob.size / inputFile.size * 100).toFixed(0);
+      el('vc-result-meta').innerHTML = `<strong>${fmtBytes(blob.size)}</strong> · 入力比 ${ratio}% · ${dt}秒`;
+      el('vc-result').style.display = 'block';
+      el('vc-status').innerHTML = '<span class="status-ok">完了</span>';
+      try { await ff.deleteFile(inName); await ff.deleteFile(outName); if (wmName) await ff.deleteFile(wmName); } catch (_) {}
+    } catch (e) {
+      logLine('ERROR: ' + (e && e.message ? e.message : String(e)));
+      el('vc-status').innerHTML = '<span class="status-err">変換失敗 (ログ参照)</span>';
+    } finally {
+      el('vc-run').disabled = false;
+    }
+  }
+  el('vc-run').addEventListener('click', run);
+
+  renderPresets();
+  renderPosGrid();
+  updateEstimate();
+})();
+</script>
+</body>
+</html>
