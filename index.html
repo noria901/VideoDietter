@@ -208,12 +208,12 @@
 <script>
 (function(){
   const PRESETS = [
-    { id: 'x_std', name: 'X (標準)', desc: '1080p / H.264 / 8Mbps', mode: 'vbr', vw: 1920, vh: 1080, vb_kbps: 8000, ab_kbps: 128, fps: null, profile: 'high', level: '4.1', preset: 'medium', pad: false },
-    { id: 'x_light', name: 'X (軽量)', desc: '720p / 30fps / 2Mbps', mode: 'vbr', vw: 1280, vh: 720, vb_kbps: 2000, ab_kbps: 96, fps: 30, profile: 'main', level: '4.0', preset: 'medium', pad: false },
-    { id: 'bsky', name: 'Bluesky', desc: '1080p / 5Mbps', mode: 'vbr', vw: 1920, vh: 1080, vb_kbps: 5000, ab_kbps: 128, fps: null, profile: 'high', level: '4.1', preset: 'medium', pad: false },
-    { id: 'shorts', name: 'YT Shorts/縦', desc: '1080x1920 / CRF 20', mode: 'crf', vw: 1080, vh: 1920, crf: 20, ab_kbps: 160, fps: null, profile: 'high', level: '4.1', preset: 'medium', pad: true },
-    { id: 'archive_lite', name: '保管 (軽量)', desc: '720p / CRF 28', mode: 'crf', vw: 1280, vh: 720, crf: 28, ab_kbps: 64, fps: null, profile: 'high', level: '4.0', preset: 'slow', pad: false },
-    { id: 'archive_quality', name: '保管 (画質)', desc: '元解像度 / CRF 20', mode: 'crf', vw: null, vh: null, crf: 20, ab_kbps: 160, fps: null, profile: 'high', level: '4.1', preset: 'slow', pad: false },
+    { id: 'x_std', name: 'X (標準)', desc: '1080p / H.264 / 8Mbps', mode: 'vbr', vw: 1920, vh: 1080, vb_kbps: 8000, ab_kbps: 128, fps: null, profile: 'high', level: '4.1', preset: 'fast', pad: false },
+    { id: 'x_light', name: 'X (軽量)', desc: '720p / 30fps / 2Mbps', mode: 'vbr', vw: 1280, vh: 720, vb_kbps: 2000, ab_kbps: 96, fps: 30, profile: 'main', level: '4.0', preset: 'fast', pad: false },
+    { id: 'bsky', name: 'Bluesky', desc: '1080p / 5Mbps', mode: 'vbr', vw: 1920, vh: 1080, vb_kbps: 5000, ab_kbps: 128, fps: null, profile: 'high', level: '4.1', preset: 'fast', pad: false },
+    { id: 'shorts', name: 'YT Shorts/縦', desc: '1080x1920 / CRF 20', mode: 'crf', vw: 1080, vh: 1920, crf: 20, ab_kbps: 160, fps: null, profile: 'high', level: '4.1', preset: 'fast', pad: true },
+    { id: 'archive_lite', name: '保管 (軽量)', desc: '720p / CRF 28', mode: 'crf', vw: 1280, vh: 720, crf: 28, ab_kbps: 64, fps: null, profile: 'high', level: '4.0', preset: 'medium', pad: false },
+    { id: 'archive_quality', name: '保管 (画質)', desc: '元解像度 / CRF 20', mode: 'crf', vw: null, vh: null, crf: 20, ab_kbps: 160, fps: null, profile: 'high', level: '4.1', preset: 'medium', pad: false },
   ];
 
   const CRF_BR_HINT = { 18: 12000, 20: 8000, 23: 5000, 28: 2500 };
@@ -364,11 +364,29 @@
     log.scrollTop = log.scrollHeight;
   }
 
+  async function loadBlob(url, mime, label){
+    const { toBlobURL } = FFmpegUtil;
+    let lastErr = null;
+    for (let i = 0; i < 3; i++){
+      try {
+        if (i > 0) {
+          logLine(`Retry (${i}/2): ${label}`);
+          el('vc-status').innerHTML = `<strong>FFmpeg読み込み中…</strong> リトライ ${i}/2`;
+          await new Promise(r => setTimeout(r, 800 * i));
+        }
+        return await toBlobURL(url, mime);
+      } catch (e) {
+        lastErr = e;
+        logLine(`Failed to fetch ${label}: ${e.message || e}`);
+      }
+    }
+    throw new Error(`${label} の取得に失敗 (3回試行): ${lastErr && lastErr.message}`);
+  }
+
   async function ensureFfmpeg(){
     if (loaded) return ffmpeg;
     el('vc-status').innerHTML = '<strong>FFmpeg読み込み中…</strong> (初回 ~32MB · MT版)';
     const { FFmpeg } = FFmpegWASM;
-    const { toBlobURL } = FFmpegUtil;
     if (!self.crossOriginIsolated) {
       logLine('WARNING: crossOriginIsolated=false. SharedArrayBuffer使えないためMT版は動かない可能性があります');
     }
@@ -380,11 +398,12 @@
       el('vc-status').innerHTML = `<strong>変換中…</strong> ${pct}%`;
     });
     const coreBaseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-mt@0.12.6/dist/umd';
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-      workerURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
-    });
+    const [coreURL, wasmURL, workerURL] = await Promise.all([
+      loadBlob(`${coreBaseURL}/ffmpeg-core.js`, 'text/javascript', 'ffmpeg-core.js'),
+      loadBlob(`${coreBaseURL}/ffmpeg-core.wasm`, 'application/wasm', 'ffmpeg-core.wasm'),
+      loadBlob(`${coreBaseURL}/ffmpeg-core.worker.js`, 'text/javascript', 'ffmpeg-core.worker.js'),
+    ]);
+    await ffmpeg.load({ coreURL, wasmURL, workerURL });
     loaded = true;
     return ffmpeg;
   }
@@ -435,8 +454,6 @@
       args.push('-filter_complex', fc, '-map', vlabel);
       if (!opts.mute) args.push('-map', '0:a?');
     }
-    const threads = Math.max(2, Math.min(8, navigator.hardwareConcurrency || 4));
-    args.push('-threads', String(threads));
     args.push('-c:v', 'libx264', '-preset', preset.preset);
     if (preset.mode === 'crf') args.push('-crf', String(preset.crf));
     else {

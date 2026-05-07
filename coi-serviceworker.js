@@ -54,7 +54,13 @@ if (typeof window === 'undefined') {
                         headers: newHeaders,
                     });
                 })
-                .catch((e) => console.error(e))
+                .catch((e) => {
+                    console.error(e);
+                    return new Response("Network error: " + e.message, {
+                        status: 502,
+                        statusText: "Bad Gateway",
+                    });
+                })
         );
     });
 
