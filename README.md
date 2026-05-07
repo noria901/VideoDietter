@@ -52,7 +52,7 @@
 
 GitHub Pages のように HTTP ヘッダを直接いじれない環境でも動くように、`coi-serviceworker.js` で COOP/COEP ヘッダを Service Worker 経由で注入しています。これがないと ffmpeg.wasm が `Failed to construct 'Worker'` で落ちます。
 
-ffmpeg 本体スクリプト（`814.ffmpeg.js`）も `toBlobURL` で同一オリジンBlob化して読み込んでいます。CDN直リンクだと cross-origin Worker 起動でエラーになるためです。
+`@ffmpeg/ffmpeg` 本体と Worker (`814.ffmpeg.js`)、`@ffmpeg/util` は `vendor/` に配置して同一オリジンから配信しています。CDN直リンクで Blob URL 経由にすると、Worker内の `importScripts` 解決でハマる場合があるためです。`@ffmpeg/core` 本体（30MB級のwasm）は CDN から `toBlobURL` 経由で取得します。
 
 ## ライセンス
 
