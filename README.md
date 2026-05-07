@@ -44,15 +44,16 @@
 
 ## 制約
 
-- ffmpeg.wasmはシングルスレッド動作のため、長尺・高解像度の動画は変換に時間がかかります
+- マルチスレッド版（`@ffmpeg/core-mt`）を使用しており、CPUコア数に応じて並列処理されます
+- ただしGPUは使えません（NVENC/QSV/VideoToolbox等は WebAssembly では未対応）
 - 巨大なファイル（数GB）はメモリの都合で扱えない場合があります
-- マルチスレッド版（ffmpeg.wasm-mt）に切り替えるには COOP/COEP ヘッダ設定が必要なため未採用
+- マルチスレッド版は SharedArrayBuffer に依存するため、COOP/COEP ヘッダ環境（または coi-serviceworker.js による迂回）が必須です
 
 ## デプロイメモ
 
-GitHub Pages のように HTTP ヘッダを直接いじれない環境でも動くように、`coi-serviceworker.js` で COOP/COEP ヘッダを Service Worker 経由で注入しています。これがないと ffmpeg.wasm が `Failed to construct 'Worker'` で落ちます。
+GitHub Pages のように HTTP ヘッダを直接いじれない環境でも動くように、`coi-serviceworker.js` で COOP/COEP ヘッダを Service Worker 経由で注入しています。これがないと SharedArrayBuffer が使えず、マルチスレッド版 ffmpeg が初期化できません。
 
-`@ffmpeg/ffmpeg` 本体と Worker (`814.ffmpeg.js`)、`@ffmpeg/util` は `vendor/` に配置して同一オリジンから配信しています。CDN直リンクで Blob URL 経由にすると、Worker内の `importScripts` 解決でハマる場合があるためです。`@ffmpeg/core` 本体（30MB級のwasm）は CDN から `toBlobURL` 経由で取得します。
+`@ffmpeg/ffmpeg` 本体と Worker (`814.ffmpeg.js`)、`@ffmpeg/util` は `vendor/` に配置して同一オリジンから配信しています。CDN直リンクで Blob URL 経由にすると、Worker内の `importScripts` 解決でハマる場合があるためです。`@ffmpeg/core-mt` 本体（30MB級のwasm）は CDN から `toBlobURL` 経由で取得します。
 
 ## ライセンス
 

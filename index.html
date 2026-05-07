@@ -366,9 +366,12 @@
 
   async function ensureFfmpeg(){
     if (loaded) return ffmpeg;
-    el('vc-status').innerHTML = '<strong>FFmpeg読み込み中…</strong> (初回 ~30MB)';
+    el('vc-status').innerHTML = '<strong>FFmpeg読み込み中…</strong> (初回 ~32MB · MT版)';
     const { FFmpeg } = FFmpegWASM;
     const { toBlobURL } = FFmpegUtil;
+    if (!self.crossOriginIsolated) {
+      logLine('WARNING: crossOriginIsolated=false. SharedArrayBuffer使えないためMT版は動かない可能性があります');
+    }
     ffmpeg = new FFmpeg();
     ffmpeg.on('log', ({ message }) => logLine(message));
     ffmpeg.on('progress', ({ progress }) => {
@@ -376,10 +379,11 @@
       el('vc-bar-fill').style.width = pct + '%';
       el('vc-status').innerHTML = `<strong>変換中…</strong> ${pct}%`;
     });
-    const coreBaseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+    const coreBaseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-mt@0.12.6/dist/umd';
     await ffmpeg.load({
       coreURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.js`, 'text/javascript'),
       wasmURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      workerURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
     });
     loaded = true;
     return ffmpeg;
@@ -431,6 +435,8 @@
       args.push('-filter_complex', fc, '-map', vlabel);
       if (!opts.mute) args.push('-map', '0:a?');
     }
+    const threads = Math.max(2, Math.min(8, navigator.hardwareConcurrency || 4));
+    args.push('-threads', String(threads));
     args.push('-c:v', 'libx264', '-preset', preset.preset);
     if (preset.mode === 'crf') args.push('-crf', String(preset.crf));
     else {
